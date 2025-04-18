@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Игра с бонусами и тач-управлением</title>
+  <style>
+    body {
+      background: #f0f0f0;
+      text-align: center;
+      font-family: sans-serif;
+      padding: 40px;
+    }
+    #gameArea {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      margin: 20px auto;
+      background-color: #fff;
+      border: 2px solid #444;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #player {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: #3498db;
+      border-radius: 6px;
+      transition: opacity 0.2s;
+    }
+    .enemy {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: #e74c3c;
+      border-radius: 6px;
+    }
+    .bonus {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background-color: #2ecc71;
+      border-radius: 6px;
+    }
+    #info {
+      margin-top: 20px;
+    }
+    #hearts {
+      font-size: 24px;
+      color: red;
+    }
+    #highScore {
+      font-size: 20px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎮 Игра с бонусами и тач-управлением</h1>
+  <p>3 жизни, счёт, враги и бонусы! Управление — стрелками или тачскрин.</p>
+
+  <div id="gameArea">
+    <div id="player"></div>
+    <div class="enemy" id="enemy1"></div>
+    <div class="enemy" id="enemy2"></div>
+    <div class="enemy" id="enemy3"></div>
+    <div class="bonus" id="shieldBonus"></div>
+    <div class="bonus" id="slowBonus"></div>
+  </div>
+
+  <div id="info">
+    <p>Очки: <span id="score">0</span></p>
+    <p>Жизни: <span id="hearts">❤️❤️❤️</span></p>
+    <p id="highScore">Лучший счёт: 0</p>
+  </div>
+
+  <script>
+    const player = document.getElementById('player');
+    const enemies = [
+      { el: document.getElementById('enemy1'), x: 50, y: 0 },
+      { el: document.getElementById('enemy2'), x: 150, y: -150 },
+      { el: document.getElementById('enemy3'), x: 250, y: -300 }
+    ];
+    const shieldBonus = document.getElementById('shieldBonus');
+    const slowBonus = document.getElementById('slowBonus');
+
+    const scoreEl = document.getElementById('score');
+    const heartsEl = document.getElementById('hearts');
+    const highScoreEl = document.getElementById('highScore');
+
+    const areaSize = 400;
+    const size = 40;
+    const step = 10;
+    const bonusSize = 30;
+
+    let position = { x: 180, y: 180 };
+    let score = 0;
+    let lives = 3;
+    let gameOver = false;
+    let invincible = false;
+    let slowMotion = false;
+    let shield = false;
+    let highScore = localStorage.getItem('highScore') || 0;
+
+    function updatePlayer() {
+      player.style.left = position.x + 'px';
+      player.style.top = position.y + 'px';
+    }
+
+    function updateEnemies() {
+      enemies.forEach(e => {
+        e.el.style.left = e.x + 'px';
+        e.el.style.top = e.y + 'px';
+      });
+    }
+
+    function updateBonuses() {
+      shieldBonus.style.left = Math.floor(Math.random() * (areaSize - bonusSize)) + 'px';
+      shieldBonus.style.top = Math.floor(Math.random() * (areaSize - bonusSize)) + 'px';
+      slowBonus.style.left = Math.floor(Math.random() * (areaSize - bonusSize)) + 'px';
+      slowBonus.style.top = Math.floor(Math.random() * (areaSize - bonusSize)) + 'px';
+    }
+
+    function checkCollision(enemy) {
+      const dx = Math.abs(position.x - enemy.x);
+      const dy = Math.abs(position.y - enemy.y);
+      return dx < size && dy < size;
+    }
+
+    function loseLife() {
+      if (invincible || shield) return;
+      lives--;
+      updateHearts();
+      invincible = true;
+      player.style.opacity = '0.4';
+
+      setTimeout(() => {
+        invincible = false;
+        player.style.opacity = '1';
+      }, 1000);
+
+      if (lives <= 0) {
+        endGame();
+      }
+    }
+
+    function updateHearts() {
+      heartsEl.innerText = '❤️'.repeat(lives);
+    }
+
+    function endGame() {
+      gameOver = true;
+      clearInterval(enemyLoop);
+      clearInterval(scoreLoop);
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+        highScoreEl.textContent = `Лучший счёт: ${highScore}`;
+      }
+
+      alert(`💀 Ты проиграл! Счёт: ${score}`);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (gameOver) return;
+
+      switch (e.key) {
+        case 'ArrowUp':    position.y = Math.max(0, position.y - step); break;
+        case 'ArrowDown':  position.y = Math.min(areaSize - size, position.y + step); break;
+        case 'ArrowLeft':  position.x = Math.max(0, position.x - step); break;
+        case 'ArrowRight': position.x = Math.min(areaSize - size, position.x + step); break;
+      }
+      updatePlayer();
+    });
+
+    // Управление на тачскрине
+    let touchStart = { x: 0, y: 0 };
+    let touchMove = { x: 0, y: 0 };
+    const gameArea = document.getElementById('gameArea');
+    gameArea.addEventListener('touchstart', (e) => {
+      touchStart.x = e.touches[0].clientX;
+      touchStart.y = e.touches[0].clientY;
+    });
+
+    gameArea.addEventListener('touchmove', (e) => {
+      touchMove.x = e.touches[0].clientX - touchStart.x;
+      touchMove.y = e.touches[0].clientY - touchStart.y;
+
+      if (gameOver) return;
+
+      position.x += touchMove.x / 5;
+      position.y += touchMove.y / 5;
+
+      position.x = Math.max(0, Math.min(areaSize - size, position.x));
+      position.y = Math.max(0, Math.min(areaSize - size, position.y));
+
+      updatePlayer();
+    });
+
+    const enemyLoop = setInterval(() => {
+      if (gameOver) return;
+
+      enemies.forEach(e => {
+        e.y += 10;
+        if (e.y > areaSize) {
+          e.y = -Math.random() * 300;
+          e.x = Math.floor(Math.random() * (areaSize - size));
+        }
+        if (checkCollision(e)) loseLife();
+      });
+
+      updateEnemies();
+    }, slowMotion ? 200 : 100); // Замедление времени
+
+    const scoreLoop = setInterval(() => {
+      if (gameOver) return;
+      score++;
+      scoreEl.textContent = score;
+    }, 1000);
+
+    updatePlayer();
+    updateEnemies();
+    updateBonuses();
+
+    // Проверка бонусов
+    setInterval(() => {
+      if (gameOver) return;
+
+      // Щит
+      if (position.x < parseInt(shieldBonus.style.left) + bonusSize &&
+          position.x + size > parseInt(shieldBonus.style.left) &&
+          position.y < parseInt(shieldBonus.style.top) + bonusSize &&
+          position.y + size > parseInt(shieldBonus.style.top)) {
+        shield = true;
+        shieldBonus.style.display = 'none'; // Убираем бонус
+        setTimeout(() => {
+          shield = false;
+        }, 5000);
+      }
+
+      // Замедление времени
+      if (position.x < parseInt(slowBonus.style.left) + bonusSize &&
+          position.x + size > parseInt(slowBonus.style.left) &&
+          position.y < parseInt(slowBonus.style.top) + bonusSize &&
+          position.y + size > parseInt(slowBonus.style.top)) {
+        slowMotion = true;
+        slowBonus.style.display = 'none'; // Убираем бонус
+        setTimeout(() => {
+          slowMotion = false;
+        }, 5000);
+      }
+    }, 100);
+
+  </script>
+
+</body>
+</html>
